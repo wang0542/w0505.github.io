@@ -262,6 +262,17 @@ async function claimSeedContent() {
 
 /* ============ 数据读取 ============ */
 
+/* 云端只认已登记的域名，其它域名读不到数据时回退到随仓库发布的静态快照 */
+let snapshotPromise;
+function loadSnapshot() {
+  if (!snapshotPromise) {
+    snapshotPromise = fetch('./data.json', { cache: 'no-cache' })
+      .then((res) => (res.ok ? res.json() : null))
+      .catch(() => null);
+  }
+  return snapshotPromise;
+}
+
 async function loadProfile() {
   const { data, error } = await cloud.database
     .from('site_profile')
@@ -270,9 +281,11 @@ async function loadProfile() {
     .limit(1);
   if (error) {
     console.warn('[site] profile read failed:', error.message);
-    return null;
+  } else if (data && data.length) {
+    return data[0];
   }
-  return data && data.length ? data[0] : null;
+  const snapshot = await loadSnapshot();
+  return (snapshot && snapshot.site_profile) || null;
 }
 
 async function loadEssays() {
@@ -280,11 +293,10 @@ async function loadEssays() {
     .from('essays')
     .select('*')
     .order('published_at', { ascending: false });
-  if (error) {
-    console.warn('[site] essays read failed:', error.message);
-    return [];
-  }
-  return data || [];
+  if (!error && data && data.length) return data;
+  if (error) console.warn('[site] essays read failed:', error.message);
+  const snapshot = await loadSnapshot();
+  return (snapshot && Array.isArray(snapshot.essays) && snapshot.essays) || [];
 }
 
 async function loadWorks() {
@@ -293,11 +305,10 @@ async function loadWorks() {
     .select('*')
     .order('sort_order', { ascending: true })
     .order('id', { ascending: true });
-  if (error) {
-    console.warn('[site] works read failed:', error.message);
-    return [];
-  }
-  return data || [];
+  if (!error && data && data.length) return data;
+  if (error) console.warn('[site] works read failed:', error.message);
+  const snapshot = await loadSnapshot();
+  return (snapshot && Array.isArray(snapshot.works) && snapshot.works) || [];
 }
 
 async function loadPhotos() {
@@ -306,11 +317,10 @@ async function loadPhotos() {
     .select('*')
     .order('sort_order', { ascending: true })
     .order('id', { ascending: true });
-  if (error) {
-    console.warn('[site] photos read failed:', error.message);
-    return [];
-  }
-  return data || [];
+  if (!error && data && data.length) return data;
+  if (error) console.warn('[site] photos read failed:', error.message);
+  const snapshot = await loadSnapshot();
+  return (snapshot && Array.isArray(snapshot.photos) && snapshot.photos) || [];
 }
 
 async function loadTracks() {
@@ -319,11 +329,10 @@ async function loadTracks() {
     .select('*')
     .order('sort_order', { ascending: true })
     .order('id', { ascending: true });
-  if (error) {
-    console.warn('[site] tracks read failed:', error.message);
-    return [];
-  }
-  return data || [];
+  if (!error && data && data.length) return data;
+  if (error) console.warn('[site] tracks read failed:', error.message);
+  const snapshot = await loadSnapshot();
+  return (snapshot && Array.isArray(snapshot.tracks) && snapshot.tracks) || [];
 }
 
 /* 照片存在数据库里，公开可读；image_data 是压缩后的 data URL */
